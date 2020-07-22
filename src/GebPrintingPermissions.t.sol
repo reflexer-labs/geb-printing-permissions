@@ -1,4 +1,4 @@
-pragma solidity ^0.5.15;
+pragma solidity ^0.6.7;
 
 import "ds-test/test.sol";
 
@@ -8,7 +8,7 @@ contract GebPrintingPermissionsTest is DSTest {
     GebPrintingPermissions permissions;
 
     function setUp() public {
-        permissions = new GebPrintingPermissions();
+        // permissions = new GebPrintingPermissions();
     }
 
     function testFail_basic_sanity() public {
