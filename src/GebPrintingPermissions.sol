@@ -8,8 +8,13 @@ abstract contract DebtAuctionHouseLike {
     function activeDebtAuctionsAccumulator() virtual public returns (uint256);
 }
 abstract contract ProtocolTokenAuthorityLike {
+    function setRoot(address) virtual public;
+    function setOwner(address) virtual public;
     function addAuthorization(address) virtual public;
     function removeAuthorization(address) virtual public;
+
+    function owner() virtual public view returns (address);
+    function root() virtual public view returns (address);
 }
 
 contract GebPrintingPermissions {
@@ -102,15 +107,6 @@ contract GebPrintingPermissions {
         assembly{ z := and(x, y)}
     }
 
-    // --- Permissions Utils ---
-    function revokeDebtAuctionHouses(address accountingEngine) internal {
-        address currentHouse  = allowedSystems[accountingEngine].currentDebtAuctionHouse;
-        address previousHouse = allowedSystems[accountingEngine].previousDebtAuctionHouse;
-        delete allowedSystems[accountingEngine];
-        protocolTokenAuthority.removeAuthorization(currentHouse);
-        protocolTokenAuthority.removeAuthorization(previousHouse);
-    }
-
     // --- Administration ---
     /**
      * @notice Modify general uint params
@@ -124,6 +120,31 @@ contract GebPrintingPermissions {
         else revert("GebPrintingPermissions/modify-unrecognized-param");
     }
 
+    // --- Token Authority Ownership ---
+    function giveUpAuthorityRoot() external emitLog isAuthorized {
+        require(protocolTokenAuthority.root() == address(this), "GebPrintingPermissions/not-root");
+        protocolTokenAuthority.setRoot(address(0));
+    }
+    function giveUpAuthorityOwnership() external emitLog isAuthorized {
+        require(
+          either(
+            protocolTokenAuthority.root() == address(this),
+            protocolTokenAuthority.owner() == address(this),
+          ), "GebPrintingPermissions/not-root-or-owner"
+        );
+        protocolTokenAuthority.setOwner(address(0));
+    }
+
+    // --- Permissions Utils ---
+    function revokeDebtAuctionHouses(address accountingEngine) internal {
+        address currentHouse  = allowedSystems[accountingEngine].currentDebtAuctionHouse;
+        address previousHouse = allowedSystems[accountingEngine].previousDebtAuctionHouse;
+        delete allowedSystems[accountingEngine];
+        protocolTokenAuthority.removeAuthorization(currentHouse);
+        protocolTokenAuthority.removeAuthorization(previousHouse);
+    }
+
+    // --- System Cover ---
     function coverSystem(address accountingEngine) external emitLog isAuthorized {
         require(!allowedSystems[accountingEngine].covered, "GebPrintingPermissions/system-already-covered");
         address debtAuctionHouse = AccountingEngineLike(accountingEngine).debtAuctionHouse();
@@ -183,6 +204,7 @@ contract GebPrintingPermissions {
     function endUncoverSystem(address accountingEngine) external emitLog isAuthorized {
         require(allowedSystems[accountingEngine].covered, "GebPrintingPermissions/system-not-covered");
         require(allowedSystems[accountingEngine].uncoverCooldownEnd > 0, "GebPrintingPermissions/system-not-being-uncovered");
+        require(allowedSystems[accountingEngine].uncoverCooldownEnd < now, "GebPrintingPermissions/cooldown-not-passed");
         require(
           DebtAuctionHouseLike(allowedSystems[accountingEngine].currentDebtAuctionHouse).activeDebtAuctionsAccumulator() == 0,
           "GebPrintingPermissions/ongoing-debt-auctions-current-house"
@@ -193,6 +215,14 @@ contract GebPrintingPermissions {
             "GebPrintingPermissions/ongoing-debt-auctions-previous-house"
           );
         }
+        require(
+          either(
+            coveredSystems > 1,
+            now <= allowedSystems[accountingEngine].withdrawAddedRightsDeadline
+          ),
+          "GebPrintingPermissions/not-enough-systems-covered"
+        );
+
         allowedSystems[accountingEngine].covered = false;
         coveredSystems = subtract(coveredSystems, 1);
         revokeDebtAuctionHouses(accountingEngine);
@@ -208,6 +238,7 @@ contract GebPrintingPermissions {
           keccak256(abi.encode(AUCTION_HOUSE_TYPE)),
           "GebPrintingPermissions/new-house-not-a-debt-auction"
         );
+        require(allowedSystems[accountingEngine].previousDebtAuctionHouse == address(0), "GebPrintingPermissions/previous-house-not-removed");
         allowedSystems[accountingEngine].previousDebtAuctionHouse =
           allowedSystems[accountingEngine].currentDebtAuctionHouse;
         allowedSystems[accountingEngine].currentDebtAuctionHouse = newHouse;

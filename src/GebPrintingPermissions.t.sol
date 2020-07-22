@@ -9,15 +9,129 @@ contract GebPrintingPermissionsTest is DSTest {
     ProtocolTokenAuthority tokenAuthority;
 
     function setUp() public {
-        tokenAuthority = ProtocolTokenAuthority();
-        
+        tokenAuthority = new ProtocolTokenAuthority();
+        permissions = new GebPrintingPermissions(address(tokenAuthority));
     }
 
-    function testFail_basic_sanity() public {
-        assertTrue(false);
+    function testModifyParameters() public {
+
+    }
+    function testGiveUpAuthRoot() public {
+
+    }
+    function testFailGiveUpAuthRoot() public {
+
+    }
+    function testGiveUpAuthOwnership() public {
+
+    }
+    function testFailGiveUpAuthOwnership() public {
+
     }
 
-    function test_basic_sanity() public {
-        assertTrue(true);
+    function testCover() public {
+
+    }
+    function testFailCoverAlreadyCovered() public {
+
+    }
+    function testFailCoverNonDebtAuctionHouse() public {
+
+    }
+    function testFailCoverWithoutAuthorityPermission() public {
+
+    }
+
+    function testCoverUncoverImmediately() public {
+
+    }
+    function testFailUncoverUncovered() public {
+
+    }
+    function testFailStartUncoverWhileCurrentHouseHasOutstandingAuctions() public {
+
+    }
+    function testFailStartUncoverWhilePreviousHouseHasOutstandingAuctions() public {
+
+    }
+    function testFailStartUncoverWhenNotEnoughSystemsCovered() public {
+
+    }
+
+    function testAbandonUncover() public {
+
+    }
+    function testFailAbandonUncovered() public {
+
+    }
+    function testFailAbandonWithoutStarting() public {
+
+    }
+
+    function testEndUncover() public {
+
+    }
+    function testEndUncoverWhenDebtHousesUnauthed() public {
+
+    }
+    function testFailEndUncoverUncovered() public {
+
+    }
+    function testFailEndUncoverWithoutStarting() public {
+
+    }
+    function testFailEndUncoverBeforeCooldown() public {
+
+    }
+    function testFailEndUncoverWhileCurrentHouseHasOutstandingAuctions() public {
+
+    }
+    function testFailEndUncoverWhilePreviousHouseHasOutstandingAuctions() public {
+
+    }
+    function testFailEndUncoverWhenNotEnoughSystemsCovered() public {
+
+    }
+
+    function testUpdateCurrentAuctionHouse() public {
+
+    }
+    function testFailUpdateCurrentHouseWhenNotCovered() public {
+
+    }
+    function testFailUpdateCurrentHouseSameHouse() public {
+
+    }
+    function testFailUpdateCurrentHouseWhenPreviousNotNull() public {
+
+    }
+    function testFailUpdateCurrentHouseNewHouseNotDebtAuction() public {
+
+    }
+
+    function testRemovePreviousAuctionHouse() public {
+
+    }
+    function testFailRemovePreviousHouseWhenNull() public {
+
+    }
+    function testFailRemovePreviousHouseWhenOutstandingAuctions() public {
+
+    }
+    function testFailRemovePreviousHouseWhenNotAuthedInProtocolAuth() public {
+
+    }
+
+    function testProposeIndefinitePrintingPermissions() public {
+
+    }
+    function testFailProposeIndefiniteWhenNotCovered() public {
+
+    }
+    function testFailProposeIndefiniteWithFreezeLowerThanCooldown() public {
+
+    }
+    function testFailProposeIndefiniteWithZeroFreeze() public {
+      
     }
 }
