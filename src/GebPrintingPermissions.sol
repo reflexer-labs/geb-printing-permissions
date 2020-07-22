@@ -157,6 +157,13 @@ contract GebPrintingPermissions {
             "GebPrintingPermissions/ongoing-debt-auctions-previous-house"
           );
         }
+        require(
+          either(
+            coveredSystems > 1,
+            now <= allowedSystems[accountingEngine].withdrawAddedRightsDeadline
+          ),
+          "GebPrintingPermissions/not-enough-systems-covered"
+        );
 
         if (now <= allowedSystems[accountingEngine].withdrawAddedRightsDeadline) {
           coveredSystems = subtract(coveredSystems, 1);
