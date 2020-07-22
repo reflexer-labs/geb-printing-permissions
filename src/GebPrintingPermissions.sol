@@ -5,7 +5,7 @@ abstract contract AccountingEngineLike {
 }
 abstract contract DebtAuctionHouseLike {
     function AUCTION_HOUSE_TYPE() virtual public returns (bytes32);
-    function activeDebtAuctionsAccumulator() virtual public returns (uint256);
+    function activeDebtAuctions() virtual public returns (uint256);
 }
 abstract contract ProtocolTokenAuthorityLike {
     function setRoot(address) virtual public;
@@ -169,12 +169,12 @@ contract GebPrintingPermissions {
         require(allowedSystems[accountingEngine].covered, "GebPrintingPermissions/system-not-covered");
         require(allowedSystems[accountingEngine].uncoverCooldownEnd == 0, "GebPrintingPermissions/system-not-being-uncovered");
         require(
-          DebtAuctionHouseLike(allowedSystems[accountingEngine].currentDebtAuctionHouse).activeDebtAuctionsAccumulator() == 0,
+          DebtAuctionHouseLike(allowedSystems[accountingEngine].currentDebtAuctionHouse).activeDebtAuctions() == 0,
           "GebPrintingPermissions/ongoing-debt-auctions-current-house"
         );
         if (allowedSystems[accountingEngine].previousDebtAuctionHouse != address(0)) {
           require(
-            DebtAuctionHouseLike(allowedSystems[accountingEngine].previousDebtAuctionHouse).activeDebtAuctionsAccumulator() == 0,
+            DebtAuctionHouseLike(allowedSystems[accountingEngine].previousDebtAuctionHouse).activeDebtAuctions() == 0,
             "GebPrintingPermissions/ongoing-debt-auctions-previous-house"
           );
         }
@@ -206,12 +206,12 @@ contract GebPrintingPermissions {
         require(allowedSystems[accountingEngine].uncoverCooldownEnd > 0, "GebPrintingPermissions/system-not-being-uncovered");
         require(allowedSystems[accountingEngine].uncoverCooldownEnd < now, "GebPrintingPermissions/cooldown-not-passed");
         require(
-          DebtAuctionHouseLike(allowedSystems[accountingEngine].currentDebtAuctionHouse).activeDebtAuctionsAccumulator() == 0,
+          DebtAuctionHouseLike(allowedSystems[accountingEngine].currentDebtAuctionHouse).activeDebtAuctions() == 0,
           "GebPrintingPermissions/ongoing-debt-auctions-current-house"
         );
         if (allowedSystems[accountingEngine].previousDebtAuctionHouse != address(0)) {
           require(
-            DebtAuctionHouseLike(allowedSystems[accountingEngine].previousDebtAuctionHouse).activeDebtAuctionsAccumulator() == 0,
+            DebtAuctionHouseLike(allowedSystems[accountingEngine].previousDebtAuctionHouse).activeDebtAuctions() == 0,
             "GebPrintingPermissions/ongoing-debt-auctions-previous-house"
           );
         }
@@ -252,7 +252,7 @@ contract GebPrintingPermissions {
           "GebPrintingPermissions/inexistent-previous-auction-house"
         );
         require(
-          DebtAuctionHouseLike(allowedSystems[accountingEngine].previousDebtAuctionHouse).activeDebtAuctionsAccumulator() == 0,
+          DebtAuctionHouseLike(allowedSystems[accountingEngine].previousDebtAuctionHouse).activeDebtAuctions() == 0,
           "GebPrintingPermissions/ongoing-debt-auctions-previous-house"
         );
         address previousHouse = allowedSystems[accountingEngine].previousDebtAuctionHouse;
