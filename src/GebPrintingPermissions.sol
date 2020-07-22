@@ -129,7 +129,7 @@ contract GebPrintingPermissions {
         require(
           either(
             protocolTokenAuthority.root() == address(this),
-            protocolTokenAuthority.owner() == address(this),
+            protocolTokenAuthority.owner() == address(this)
           ), "GebPrintingPermissions/not-root-or-owner"
         );
         protocolTokenAuthority.setOwner(address(0));
