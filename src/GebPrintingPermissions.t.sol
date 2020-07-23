@@ -124,12 +124,23 @@ contract GebPrintingPermissionsTest is DSTest {
         assertTrue(currentDebtAuctionHouse == address(debtAuctionHouse));
 
         assertEq(permissions.coveredSystems(), 1);
+        assertEq(permissions.usedAuctionHouses(address(debtAuctionHouse)), 1);
         assertEq(tokenAuthority.authorizedAccounts(address(debtAuctionHouse)), 1);
     }
     function testFailCoverAlreadyCovered() public {
         tokenAuthority.setOwner(address(permissions));
         permissions.coverSystem(address(accountingEngine));
         permissions.coverSystem(address(accountingEngine));
+    }
+    function testFailCoverSameAuctionHouseTwice() public {
+        tokenAuthority.setOwner(address(permissions));
+        permissions.coverSystem(address(accountingEngine));
+
+        hevm.warp(now + 1);
+
+        TestAccountingEngine newAccountingEngine = new TestAccountingEngine();
+        newAccountingEngine.modifyParameters("debtAuctionHouse", address(debtAuctionHouse));
+        permissions.coverSystem(address(newAccountingEngine));
     }
     function testFailCoverNonDebtAuctionHouse() public {
         accountingEngine = new TestAccountingEngine();
@@ -148,6 +159,7 @@ contract GebPrintingPermissionsTest is DSTest {
 
         permissions.startUncoverSystem(address(accountingEngine));
         assertEq(tokenAuthority.authorizedAccounts(address(debtAuctionHouse)), 0);
+        assertEq(permissions.usedAuctionHouses(address(debtAuctionHouse)), 0);
     }
     function testFailUncoverUncovered() public {
         tokenAuthority.setOwner(address(permissions));
@@ -201,8 +213,8 @@ contract GebPrintingPermissionsTest is DSTest {
         TestDebtAuctionHouse newDebtAuctionHouse = new TestDebtAuctionHouse();
         TestAccountingEngine newAccountingEngine = new TestAccountingEngine();
 
-        newAccountingEngine.modifyParameters("debtAuctionHouse", address(debtAuctionHouse));
-        debtAuctionHouse.modifyParameters("AUCTION_HOUSE_TYPE", bytes32("DEBT"));
+        newAccountingEngine.modifyParameters("debtAuctionHouse", address(newDebtAuctionHouse));
+        newDebtAuctionHouse.modifyParameters("AUCTION_HOUSE_TYPE", bytes32("DEBT"));
 
         permissions.coverSystem(address(newAccountingEngine));
         permissions.startUncoverSystem(address(accountingEngine));
@@ -230,6 +242,9 @@ contract GebPrintingPermissionsTest is DSTest {
 
         assertTrue(covered);
         assertTrue(uncoverCooldownEnd == 0);
+
+        assertEq(tokenAuthority.authorizedAccounts(address(debtAuctionHouse)), 1);
+        assertEq(permissions.usedAuctionHouses(address(debtAuctionHouse)), 1);
     }
     function testFailAbandonWithoutStarting() public {
         tokenAuthority.setOwner(address(permissions));
@@ -248,14 +263,35 @@ contract GebPrintingPermissionsTest is DSTest {
         TestDebtAuctionHouse newDebtAuctionHouse = new TestDebtAuctionHouse();
         TestAccountingEngine newAccountingEngine = new TestAccountingEngine();
 
-        newAccountingEngine.modifyParameters("debtAuctionHouse", address(debtAuctionHouse));
-        debtAuctionHouse.modifyParameters("AUCTION_HOUSE_TYPE", bytes32("DEBT"));
+        newAccountingEngine.modifyParameters("debtAuctionHouse", address(newDebtAuctionHouse));
+        newDebtAuctionHouse.modifyParameters("AUCTION_HOUSE_TYPE", bytes32("DEBT"));
 
         permissions.coverSystem(address(newAccountingEngine));
 
         permissions.startUncoverSystem(address(accountingEngine));
         hevm.warp(now + 1);
         permissions.endUncoverSystem(address(accountingEngine));
+
+        assertEq(tokenAuthority.authorizedAccounts(address(debtAuctionHouse)), 0);
+
+        (
+          bool covered,
+          uint256 revokeRightsDeadline,
+          uint256 uncoverCooldownEnd,
+          uint256 withdrawAddedRightsDeadline,
+          address previousDebtAuctionHouse,
+          address currentDebtAuctionHouse
+        ) = permissions.allowedSystems(address(accountingEngine));
+
+        assertTrue(!covered);
+        assertEq(revokeRightsDeadline, 0);
+        assertEq(uncoverCooldownEnd, 0);
+        assertEq(withdrawAddedRightsDeadline, 0);
+        assertTrue(previousDebtAuctionHouse == address(0));
+        assertTrue(currentDebtAuctionHouse == address(0));
+
+        assertEq(permissions.usedAuctionHouses(address(debtAuctionHouse)), 0);
+        assertEq(permissions.usedAuctionHouses(address(newDebtAuctionHouse)), 1);
     }
     function testEndUncoverWhenDebtHousesUnauthed() public {
         tokenAuthority.setOwner(address(permissions));
@@ -268,14 +304,33 @@ contract GebPrintingPermissionsTest is DSTest {
         TestDebtAuctionHouse newDebtAuctionHouse = new TestDebtAuctionHouse();
         TestAccountingEngine newAccountingEngine = new TestAccountingEngine();
 
-        newAccountingEngine.modifyParameters("debtAuctionHouse", address(debtAuctionHouse));
-        debtAuctionHouse.modifyParameters("AUCTION_HOUSE_TYPE", bytes32("DEBT"));
+        newAccountingEngine.modifyParameters("debtAuctionHouse", address(newDebtAuctionHouse));
+        newDebtAuctionHouse.modifyParameters("AUCTION_HOUSE_TYPE", bytes32("DEBT"));
 
         permissions.coverSystem(address(newAccountingEngine));
 
         permissions.startUncoverSystem(address(accountingEngine));
         hevm.warp(now + 1);
         permissions.endUncoverSystem(address(accountingEngine));
+
+        (
+          bool covered,
+          uint256 revokeRightsDeadline,
+          uint256 uncoverCooldownEnd,
+          uint256 withdrawAddedRightsDeadline,
+          address previousDebtAuctionHouse,
+          address currentDebtAuctionHouse
+        ) = permissions.allowedSystems(address(accountingEngine));
+
+        assertTrue(!covered);
+        assertEq(revokeRightsDeadline, 0);
+        assertEq(uncoverCooldownEnd, 0);
+        assertEq(withdrawAddedRightsDeadline, 0);
+        assertTrue(previousDebtAuctionHouse == address(0));
+        assertTrue(currentDebtAuctionHouse == address(0));
+
+        assertEq(permissions.usedAuctionHouses(address(debtAuctionHouse)), 0);
+        assertEq(permissions.usedAuctionHouses(address(newDebtAuctionHouse)), 1);
     }
     function testFailEndUncoverWithoutStarting() public {
         tokenAuthority.setOwner(address(permissions));
@@ -380,7 +435,23 @@ contract GebPrintingPermissionsTest is DSTest {
         newDebtAuctionHouse.modifyParameters("activeDebtAuctions", 1);
 
         accountingEngine.modifyParameters("debtAuctionHouse", address(newDebtAuctionHouse));
+
+        assertEq(tokenAuthority.authorizedAccounts(address(newDebtAuctionHouse)), 0);
         permissions.updateCurrentDebtAuctionHouse(address(accountingEngine));
+
+        (
+          ,
+          ,
+          ,
+          ,
+          address previousDebtAuctionHouse,
+          address currentDebtAuctionHouse
+        ) = permissions.allowedSystems(address(accountingEngine));
+
+        assertTrue(previousDebtAuctionHouse == address(debtAuctionHouse));
+        assertTrue(currentDebtAuctionHouse == address(newDebtAuctionHouse));
+
+        assertEq(tokenAuthority.authorizedAccounts(address(newDebtAuctionHouse)), 1);
     }
     function testFailUpdateCurrentHouseWhenNotCovered() public {
         tokenAuthority.setOwner(address(permissions));
@@ -401,36 +472,182 @@ contract GebPrintingPermissionsTest is DSTest {
         permissions.coverSystem(address(accountingEngine));
         permissions.updateCurrentDebtAuctionHouse(address(accountingEngine));
     }
-    function testFailUpdateCurrentHouseWhenPreviousNotNull() public {
-        
+    function testFailUpdateCurrentHouseNewHouseAlreadyUsed() public {
+        tokenAuthority.setOwner(address(permissions));
+        permissions.coverSystem(address(accountingEngine));
+
+        hevm.warp(now + 1);
+
+        tokenAuthority.removeAuthorization(address(debtAuctionHouse));
+
+        TestDebtAuctionHouse newDebtAuctionHouse = new TestDebtAuctionHouse();
+        TestAccountingEngine newAccountingEngine = new TestAccountingEngine();
+
+        newAccountingEngine.modifyParameters("debtAuctionHouse", address(newDebtAuctionHouse));
+        newDebtAuctionHouse.modifyParameters("AUCTION_HOUSE_TYPE", bytes32("DEBT"));
+
+        permissions.coverSystem(address(newAccountingEngine));
+
+        accountingEngine.modifyParameters("debtAuctionHouse", address(newDebtAuctionHouse));
+        permissions.updateCurrentDebtAuctionHouse(address(accountingEngine));
     }
-    // function testFailUpdateCurrentHouseNewHouseNotDebtAuction() public {
-    //
-    // }
-    //
-    // function testRemovePreviousAuctionHouse() public {
-    //
-    // }
-    // function testFailRemovePreviousHouseWhenNull() public {
-    //
-    // }
-    // function testFailRemovePreviousHouseWhenOutstandingAuctions() public {
-    //
-    // }
-    // function testFailRemovePreviousHouseWhenNotAuthedInProtocolAuth() public {
-    //
-    // }
-    //
-    // function testProposeIndefinitePrintingPermissions() public {
-    //
-    // }
-    // function testFailProposeIndefiniteWhenNotCovered() public {
-    //
-    // }
-    // function testFailProposeIndefiniteWithFreezeLowerThanCooldown() public {
-    //
-    // }
-    // function testFailProposeIndefiniteWithZeroFreeze() public {
-    //
-    // }
+    function testFailUpdateCurrentHouseWhenPreviousNotNull() public {
+        tokenAuthority.setOwner(address(permissions));
+        permissions.coverSystem(address(accountingEngine));
+
+        TestDebtAuctionHouse newDebtAuctionHouse = new TestDebtAuctionHouse();
+        newDebtAuctionHouse.modifyParameters("AUCTION_HOUSE_TYPE", bytes32("DEBT"));
+        newDebtAuctionHouse.modifyParameters("activeDebtAuctions", 1);
+
+        accountingEngine.modifyParameters("debtAuctionHouse", address(newDebtAuctionHouse));
+        permissions.updateCurrentDebtAuctionHouse(address(accountingEngine));
+
+        newDebtAuctionHouse = new TestDebtAuctionHouse();
+        newDebtAuctionHouse.modifyParameters("AUCTION_HOUSE_TYPE", bytes32("DEBT"));
+        newDebtAuctionHouse.modifyParameters("activeDebtAuctions", 1);
+
+        accountingEngine.modifyParameters("debtAuctionHouse", address(newDebtAuctionHouse));
+        permissions.updateCurrentDebtAuctionHouse(address(accountingEngine));
+    }
+    function testFailUpdateCurrentHouseNewHouseNotDebtAuction() public {
+        tokenAuthority.setOwner(address(permissions));
+        permissions.coverSystem(address(accountingEngine));
+
+        TestDebtAuctionHouse newDebtAuctionHouse = new TestDebtAuctionHouse();
+        newDebtAuctionHouse.modifyParameters("activeDebtAuctions", 1);
+
+        accountingEngine.modifyParameters("debtAuctionHouse", address(newDebtAuctionHouse));
+        permissions.updateCurrentDebtAuctionHouse(address(accountingEngine));
+    }
+
+    function testRemovePreviousAuctionHouse() public {
+        tokenAuthority.setOwner(address(permissions));
+        permissions.coverSystem(address(accountingEngine));
+
+        TestDebtAuctionHouse newDebtAuctionHouse = new TestDebtAuctionHouse();
+        newDebtAuctionHouse.modifyParameters("AUCTION_HOUSE_TYPE", bytes32("DEBT"));
+        newDebtAuctionHouse.modifyParameters("activeDebtAuctions", 1);
+
+        accountingEngine.modifyParameters("debtAuctionHouse", address(newDebtAuctionHouse));
+        permissions.updateCurrentDebtAuctionHouse(address(accountingEngine));
+
+        assertEq(tokenAuthority.authorizedAccounts(address(debtAuctionHouse)), 1);
+
+        permissions.removePreviousDebtAuctionHouse(address(accountingEngine));
+
+        (
+          ,
+          ,
+          ,
+          ,
+          address previousDebtAuctionHouse,
+          address currentDebtAuctionHouse
+        ) = permissions.allowedSystems(address(accountingEngine));
+
+        assertTrue(previousDebtAuctionHouse == address(0));
+        assertTrue(currentDebtAuctionHouse == address(newDebtAuctionHouse));
+
+        assertEq(tokenAuthority.authorizedAccounts(address(debtAuctionHouse)), 0);
+        assertEq(tokenAuthority.authorizedAccounts(address(newDebtAuctionHouse)), 1);
+    }
+    function testFailRemovePreviousHouseWhenNull() public {
+        tokenAuthority.setOwner(address(permissions));
+        permissions.coverSystem(address(accountingEngine));
+        permissions.removePreviousDebtAuctionHouse(address(accountingEngine));
+    }
+    function testFailRemovePreviousHouseWhenOutstandingAuctions() public {
+        tokenAuthority.setOwner(address(permissions));
+        permissions.coverSystem(address(accountingEngine));
+
+        TestDebtAuctionHouse newDebtAuctionHouse = new TestDebtAuctionHouse();
+        newDebtAuctionHouse.modifyParameters("AUCTION_HOUSE_TYPE", bytes32("DEBT"));
+
+        accountingEngine.modifyParameters("debtAuctionHouse", address(newDebtAuctionHouse));
+        permissions.updateCurrentDebtAuctionHouse(address(accountingEngine));
+
+        debtAuctionHouse.modifyParameters("activeDebtAuctions", 1);
+
+        permissions.removePreviousDebtAuctionHouse(address(accountingEngine));
+    }
+    function testFailRemovePreviousHouseWhenNotAuthedInProtocolAuth() public {
+        tokenAuthority.setOwner(address(permissions));
+        permissions.coverSystem(address(accountingEngine));
+
+        TestDebtAuctionHouse newDebtAuctionHouse = new TestDebtAuctionHouse();
+        newDebtAuctionHouse.modifyParameters("AUCTION_HOUSE_TYPE", bytes32("DEBT"));
+        newDebtAuctionHouse.modifyParameters("activeDebtAuctions", 1);
+
+        accountingEngine.modifyParameters("debtAuctionHouse", address(newDebtAuctionHouse));
+        permissions.updateCurrentDebtAuctionHouse(address(accountingEngine));
+
+        tokenAuthority.setOwner(address(0));
+
+        permissions.removePreviousDebtAuctionHouse(address(accountingEngine));
+    }
+
+    function testProposeIndefinitePrintingPermissions() public {
+        tokenAuthority.setOwner(address(permissions));
+        permissions.coverSystem(address(accountingEngine));
+
+        (
+          ,
+          uint256 revokeRightsDeadline,
+          ,
+          ,
+          ,
+
+        ) = permissions.allowedSystems(address(accountingEngine));
+        assertEq(revokeRightsDeadline, uint(-1));
+
+        permissions.proposeIndefinitePrintingPermissions(address(accountingEngine), 3600);
+
+        (
+          ,
+          revokeRightsDeadline,
+          ,
+          ,
+          ,
+
+        ) = permissions.allowedSystems(address(accountingEngine));
+        assertEq(revokeRightsDeadline, now + 3600);
+
+        assertEq(tokenAuthority.authorizedAccounts(address(debtAuctionHouse)), 1);
+    }
+    function testFailProposeIndefiniteWhenNotCovered() public {
+        tokenAuthority.setOwner(address(permissions));
+        permissions.proposeIndefinitePrintingPermissions(address(accountingEngine), 3600);
+    }
+    function testFailProposeIndefiniteWithFreezeLowerThanCooldown() public {
+        permissions.modifyParameters("unrevokableRightsCooldown", 3600);
+        tokenAuthority.setOwner(address(permissions));
+        permissions.coverSystem(address(accountingEngine));
+
+        (
+          ,
+          uint256 revokeRightsDeadline,
+          ,
+          ,
+          ,
+
+        ) = permissions.allowedSystems(address(accountingEngine));
+        assertEq(revokeRightsDeadline, uint(-1));
+
+        permissions.proposeIndefinitePrintingPermissions(address(accountingEngine), 1);
+    }
+    function testFailProposeIndefiniteWithZeroFreeze() public {
+        tokenAuthority.setOwner(address(permissions));
+        permissions.coverSystem(address(accountingEngine));
+
+        (
+          ,
+          uint256 revokeRightsDeadline,
+          ,
+          ,
+          ,
+
+        ) = permissions.allowedSystems(address(accountingEngine));
+        assertEq(revokeRightsDeadline, uint(-1));
+
+        permissions.proposeIndefinitePrintingPermissions(address(accountingEngine), 0);
+    }
 }
