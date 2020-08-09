@@ -105,6 +105,7 @@ contract GebPrintingPermissions {
     constructor(address protocolTokenAuthority_) public {
         authorizedAccounts[msg.sender] = 1;
         protocolTokenAuthority = ProtocolTokenAuthorityLike(protocolTokenAuthority_);
+        emit AddAuthorization(msg.sender);
     }
 
     // --- Math ---
