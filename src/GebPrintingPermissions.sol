@@ -24,7 +24,7 @@ contract GebPrintingPermissions {
      * @notice Add auth to an account
      * @param account Account to add auth to
      */
-    function addAuthorization(address account) external emitLog isAuthorized {
+    function addAuthorization(address account) external isAuthorized {
         authorizedAccounts[account] = 1;
         emit AddAuthorization(account);
     }
@@ -32,7 +32,7 @@ contract GebPrintingPermissions {
      * @notice Remove auth from an account
      * @param account Account to remove auth from
      */
-    function removeAuthorization(address account) external emitLog isAuthorized {
+    function removeAuthorization(address account) external isAuthorized {
         authorizedAccounts[account] = 0;
         emit RemoveAuthorization(account);
     }
@@ -79,29 +79,6 @@ contract GebPrintingPermissions {
     event RemovePreviousDebtAuctionHouse(address accountingEngine, address currentHouse, address previousHouse);
     event ProposeIndefinitePrintingPermissions(address accountingEngine, uint256 freezeDelay);
 
-    /**
-    * @notice Log an 'anonymous' event with a constant 6 words of calldata
-    * and four indexed topics: the selector and the first three args
-    **/
-    modifier emitLog {
-        //
-        //
-        _;
-        assembly {
-            let mark := mload(0x40)                   // end of memory ensures zero
-            mstore(0x40, add(mark, 288))              // update free memory pointer
-            mstore(mark, 0x20)                        // bytes type data offset
-            mstore(add(mark, 0x20), 224)              // bytes size (padded)
-            calldatacopy(add(mark, 0x40), 0, 224)     // bytes payload
-            log4(mark, 288,                           // calldata
-                 shl(224, shr(224, calldataload(0))), // msg.sig
-                 calldataload(4),                     // arg1
-                 calldataload(36),                    // arg2
-                 calldataload(68)                     // arg3
-                )
-        }
-    }
-
     constructor(address protocolTokenAuthority_) public {
         authorizedAccounts[msg.sender] = 1;
         protocolTokenAuthority = ProtocolTokenAuthorityLike(protocolTokenAuthority_);
@@ -131,7 +108,7 @@ contract GebPrintingPermissions {
      * @param parameter The name of the parameter modified
      * @param data New value for the parameter
      */
-    function modifyParameters(bytes32 parameter, uint data) external emitLog isAuthorized {
+    function modifyParameters(bytes32 parameter, uint data) external isAuthorized {
         if (parameter == "unrevokableRightsCooldown") unrevokableRightsCooldown = data;
         else if (parameter == "denyRightsCooldown") denyRightsCooldown = data;
         else if (parameter == "addRightsCooldown") addRightsCooldown = data;
@@ -140,12 +117,12 @@ contract GebPrintingPermissions {
     }
 
     // --- Token Authority Ownership ---
-    function giveUpAuthorityRoot() external emitLog isAuthorized {
+    function giveUpAuthorityRoot() external isAuthorized {
         require(protocolTokenAuthority.root() == address(this), "GebPrintingPermissions/not-root");
         protocolTokenAuthority.setRoot(address(0));
         emit GiveUpAuthorityRoot();
     }
-    function giveUpAuthorityOwnership() external emitLog isAuthorized {
+    function giveUpAuthorityOwnership() external isAuthorized {
         require(
           either(
             protocolTokenAuthority.root() == address(this),
@@ -167,7 +144,7 @@ contract GebPrintingPermissions {
     }
 
     // --- System Cover ---
-    function coverSystem(address accountingEngine) external emitLog isAuthorized {
+    function coverSystem(address accountingEngine) external isAuthorized {
         require(!allowedSystems[accountingEngine].covered, "GebPrintingPermissions/system-already-covered");
         address debtAuctionHouse = AccountingEngineLike(accountingEngine).debtAuctionHouse();
         require(
@@ -190,7 +167,7 @@ contract GebPrintingPermissions {
         emit CoverSystem(accountingEngine, debtAuctionHouse, coveredSystems, addition(now, addRightsCooldown));
     }
 
-    function startUncoverSystem(address accountingEngine) external emitLog isAuthorized {
+    function startUncoverSystem(address accountingEngine) external isAuthorized {
         require(allowedSystems[accountingEngine].covered, "GebPrintingPermissions/system-not-covered");
         require(allowedSystems[accountingEngine].uncoverCooldownEnd == 0, "GebPrintingPermissions/system-not-being-uncovered");
         require(
@@ -230,14 +207,14 @@ contract GebPrintingPermissions {
         );
     }
 
-    function abandonUncoverSystem(address accountingEngine) external emitLog isAuthorized {
+    function abandonUncoverSystem(address accountingEngine) external isAuthorized {
         require(allowedSystems[accountingEngine].covered, "GebPrintingPermissions/system-not-covered");
         require(allowedSystems[accountingEngine].uncoverCooldownEnd > 0, "GebPrintingPermissions/system-not-being-uncovered");
         allowedSystems[accountingEngine].uncoverCooldownEnd = 0;
         emit AbandonUncoverSystem(accountingEngine);
     }
 
-    function endUncoverSystem(address accountingEngine) external emitLog isAuthorized {
+    function endUncoverSystem(address accountingEngine) external isAuthorized {
         require(allowedSystems[accountingEngine].covered, "GebPrintingPermissions/system-not-covered");
         require(allowedSystems[accountingEngine].uncoverCooldownEnd > 0, "GebPrintingPermissions/system-not-being-uncovered");
         require(allowedSystems[accountingEngine].uncoverCooldownEnd < now, "GebPrintingPermissions/cooldown-not-passed");
@@ -275,7 +252,7 @@ contract GebPrintingPermissions {
         delete allowedSystems[accountingEngine];
     }
 
-    function updateCurrentDebtAuctionHouse(address accountingEngine) external emitLog isAuthorized {
+    function updateCurrentDebtAuctionHouse(address accountingEngine) external isAuthorized {
         require(allowedSystems[accountingEngine].covered, "GebPrintingPermissions/system-not-covered");
         address newHouse = AccountingEngineLike(accountingEngine).debtAuctionHouse();
         require(newHouse != allowedSystems[accountingEngine].currentDebtAuctionHouse, "GebPrintingPermissions/new-house-not-changed");
@@ -298,7 +275,7 @@ contract GebPrintingPermissions {
         );
     }
 
-    function removePreviousDebtAuctionHouse(address accountingEngine) external emitLog isAuthorized {
+    function removePreviousDebtAuctionHouse(address accountingEngine) external isAuthorized {
         require(allowedSystems[accountingEngine].covered, "GebPrintingPermissions/system-not-covered");
         require(
           allowedSystems[accountingEngine].previousDebtAuctionHouse != address(0),
@@ -319,7 +296,7 @@ contract GebPrintingPermissions {
         );
     }
 
-    function proposeIndefinitePrintingPermissions(address accountingEngine, uint256 freezeDelay) external emitLog isAuthorized {
+    function proposeIndefinitePrintingPermissions(address accountingEngine, uint256 freezeDelay) external isAuthorized {
         require(allowedSystems[accountingEngine].covered, "GebPrintingPermissions/system-not-covered");
         require(both(freezeDelay >= unrevokableRightsCooldown, freezeDelay > 0), "GebPrintingPermissions/low-delay");
         require(allowedSystems[accountingEngine].revokeRightsDeadline > addition(now, freezeDelay), "GebPrintingPermissions/big-delay");
