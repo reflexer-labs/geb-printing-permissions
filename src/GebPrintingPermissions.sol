@@ -292,7 +292,7 @@ contract GebPrintingPermissions {
         emit RemovePreviousDebtAuctionHouse(
           accountingEngine,
           allowedSystems[accountingEngine].currentDebtAuctionHouse,
-          allowedSystems[accountingEngine].previousDebtAuctionHouse
+          previousHouse
         );
     }
 
