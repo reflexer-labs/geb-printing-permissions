@@ -239,7 +239,6 @@ contract GebPrintingPermissions {
         usedAuctionHouses[allowedSystems[accountingEngine].previousDebtAuctionHouse] = 0;
         usedAuctionHouses[allowedSystems[accountingEngine].currentDebtAuctionHouse]  = 0;
 
-        allowedSystems[accountingEngine].covered = false;
         coveredSystems = subtract(coveredSystems, 1);
         revokeDebtAuctionHouses(accountingEngine);
 
