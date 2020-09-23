@@ -154,17 +154,18 @@ contract GebPrintingPermissions {
         );
         require(usedAuctionHouses[debtAuctionHouse] == 0, "GebPrintingPermissions/auction-house-already-used");
         usedAuctionHouses[debtAuctionHouse] = 1;
+        uint newWithdrawAddedRightsCooldown = addition(now, addRightsCooldown);
         allowedSystems[accountingEngine] = SystemRights(
           true,
           uint256(-1),
           0,
-          addition(now, addRightsCooldown),
+          newWithdrawAddedRightsCooldown,
           address(0),
           debtAuctionHouse
         );
         coveredSystems = addition(coveredSystems, 1);
         protocolTokenAuthority.addAuthorization(debtAuctionHouse);
-        emit CoverSystem(accountingEngine, debtAuctionHouse, coveredSystems, addition(now, addRightsCooldown));
+        emit CoverSystem(accountingEngine, debtAuctionHouse, coveredSystems, newWithdrawAddedRightsCooldown);
     }
 
     function startUncoverSystem(address accountingEngine) external isAuthorized {
