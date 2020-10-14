@@ -44,27 +44,41 @@ contract GebPrintingPermissions {
         _;
     }
 
+    // --- Structs ---
     struct SystemRights {
+        // Whether this system is covered or not
         bool    covered;
+        // Timestamp after which this system cannot have its printing rights taken away
         uint256 revokeRightsDeadline;
+        // Timestamp after which the uncover process can end
         uint256 uncoverCooldownEnd;
+        // Timestamp until which the added rights can be taken without waiting until uncoverCooldownEnd
         uint256 withdrawAddedRightsDeadline;
+        // The previous address of the debt auction house
         address previousDebtAuctionHouse;
+        // The current address of the debt auction house
         address currentDebtAuctionHouse;
     }
 
+    // Mapping of all the allowed systems
     mapping(address => SystemRights) public allowedSystems;
+    // Whether an auction house is already used or not
     mapping(address => uint256)      public usedAuctionHouses;
 
+    // Minimum amount of time that we need to wait until a system can have unlimited printing rights
     uint256 public unrevokableRightsCooldown;
+    // Amount of time that needs to pass until the uncover period can end
     uint256 public denyRightsCooldown;
+    // Amount of time during which rights can be withdrawn without waiting for denyRightsCooldown seconds
     uint256 public addRightsCooldown;
+    // Amount of systems covered
     uint256 public coveredSystems;
 
     ProtocolTokenAuthorityLike public protocolTokenAuthority;
 
     bytes32 public constant AUCTION_HOUSE_TYPE = bytes32("DEBT");
 
+    // --- Events ---
     event AddAuthorization(address account);
     event RemoveAuthorization(address account);
     event ModifyParameters(bytes32 parameter, uint data);
@@ -117,11 +131,17 @@ contract GebPrintingPermissions {
     }
 
     // --- Token Authority Ownership ---
+    /**
+     * @notice Give up being a root inside the protocol token authority
+     */
     function giveUpAuthorityRoot() external isAuthorized {
         require(protocolTokenAuthority.root() == address(this), "GebPrintingPermissions/not-root");
         protocolTokenAuthority.setRoot(address(0));
         emit GiveUpAuthorityRoot();
     }
+    /**
+     * @notice Give up being the owner inside the protocol token authority
+     */
     function giveUpAuthorityOwnership() external isAuthorized {
         require(
           either(
@@ -134,6 +154,10 @@ contract GebPrintingPermissions {
     }
 
     // --- Permissions Utils ---
+    /**
+     * @notice Revoke permissions for both the current and the last debt auction house associated with an accounting engine
+     * @param accountingEngine The address of the accounting engine whose debt auction houses will no longer have printing permissions
+     */
     function revokeDebtAuctionHouses(address accountingEngine) internal {
         address currentHouse  = allowedSystems[accountingEngine].currentDebtAuctionHouse;
         address previousHouse = allowedSystems[accountingEngine].previousDebtAuctionHouse;
@@ -144,6 +168,10 @@ contract GebPrintingPermissions {
     }
 
     // --- System Cover ---
+    /**
+     * @notice Cover a new system
+     * @param accountingEngine The address of the accounting engine being part of a new covered system
+     */
     function coverSystem(address accountingEngine) external isAuthorized {
         require(!allowedSystems[accountingEngine].covered, "GebPrintingPermissions/system-already-covered");
         address debtAuctionHouse = AccountingEngineLike(accountingEngine).debtAuctionHouse();
@@ -167,7 +195,10 @@ contract GebPrintingPermissions {
         protocolTokenAuthority.addAuthorization(debtAuctionHouse);
         emit CoverSystem(accountingEngine, debtAuctionHouse, coveredSystems, newWithdrawAddedRightsCooldown);
     }
-
+    /**
+     * @notice Start to uncover a system
+     * @param accountingEngine The address of the accounting engine whose auction houses will start to be uncovered
+     */
     function startUncoverSystem(address accountingEngine) external isAuthorized {
         require(allowedSystems[accountingEngine].covered, "GebPrintingPermissions/system-not-covered");
         require(allowedSystems[accountingEngine].uncoverCooldownEnd == 0, "GebPrintingPermissions/system-not-being-uncovered");
@@ -207,14 +238,20 @@ contract GebPrintingPermissions {
           allowedSystems[accountingEngine].withdrawAddedRightsDeadline
         );
     }
-
+    /**
+     * @notice Abandon the uncover process for a system
+     * @param accountingEngine The address of the accounting engine whose auction houses should have been uncovered
+     */
     function abandonUncoverSystem(address accountingEngine) external isAuthorized {
         require(allowedSystems[accountingEngine].covered, "GebPrintingPermissions/system-not-covered");
         require(allowedSystems[accountingEngine].uncoverCooldownEnd > 0, "GebPrintingPermissions/system-not-being-uncovered");
         allowedSystems[accountingEngine].uncoverCooldownEnd = 0;
         emit AbandonUncoverSystem(accountingEngine);
     }
-
+    /**
+     * @notice Abandon the uncover process for a system
+     * @param accountingEngine The address of the accounting engine whose auction houses should have been uncovered
+     */
     function endUncoverSystem(address accountingEngine) external isAuthorized {
         require(allowedSystems[accountingEngine].covered, "GebPrintingPermissions/system-not-covered");
         require(allowedSystems[accountingEngine].uncoverCooldownEnd > 0, "GebPrintingPermissions/system-not-being-uncovered");
@@ -251,7 +288,10 @@ contract GebPrintingPermissions {
 
         delete allowedSystems[accountingEngine];
     }
-
+    /**
+     * @notice Update the current debt auction house associated with a system
+     * @param accountingEngine The address of the accounting engine associated with a covered system
+     */
     function updateCurrentDebtAuctionHouse(address accountingEngine) external isAuthorized {
         require(allowedSystems[accountingEngine].covered, "GebPrintingPermissions/system-not-covered");
         address newHouse = AccountingEngineLike(accountingEngine).debtAuctionHouse();
@@ -274,7 +314,10 @@ contract GebPrintingPermissions {
           allowedSystems[accountingEngine].previousDebtAuctionHouse
         );
     }
-
+    /**
+     * @notice Remove the previous, no longer used debt auction house from a covered system
+     * @param accountingEngine The address of the accounting engine associated with a covered system
+     */
     function removePreviousDebtAuctionHouse(address accountingEngine) external isAuthorized {
         require(allowedSystems[accountingEngine].covered, "GebPrintingPermissions/system-not-covered");
         require(
@@ -295,7 +338,11 @@ contract GebPrintingPermissions {
           previousHouse
         );
     }
-
+    /**
+     * @notice Propose a time after which a currently covered system will no longer be under the threat of getting uncovered
+     * @param accountingEngine The address of the accounting engine associated with a covered system
+     * @param freezeDelay The amount of time (from this point onward) during which the system can still be uncovered but, once passed, the system has indefinite printing permissions
+     */
     function proposeIndefinitePrintingPermissions(address accountingEngine, uint256 freezeDelay) external isAuthorized {
         require(allowedSystems[accountingEngine].covered, "GebPrintingPermissions/system-not-covered");
         require(both(freezeDelay >= unrevokableRightsCooldown, freezeDelay > 0), "GebPrintingPermissions/low-delay");
