@@ -249,7 +249,7 @@ contract GebPrintingPermissions {
         emit AbandonUncoverSystem(accountingEngine);
     }
     /**
-     * @notice Abandon the uncover process for a system
+     * @notice Finalize the uncover process for a system
      * @param accountingEngine The address of the accounting engine whose auction houses should have been uncovered
      */
     function endUncoverSystem(address accountingEngine) external isAuthorized {
